@@ -31,6 +31,7 @@ const KLEUR_ZWART = "#000000";
 const KLEUR_WIT = "#ffffff";
 
 function maakStartstukken() {
+  console.log("P");
   return new Array(BORD_GROOTTE).fill(null).map((_, rij) =>
     new Array(BORD_GROOTTE).fill(null).map((_, kolom) => {
       const isZwart = (rij + kolom) % 2 === 1;
@@ -70,6 +71,8 @@ function App() {
             } else {
               return vak; // alle andere vakjes blijven hetzelfde
             }
+          } else {
+            return vak;
           }
         })
       );
