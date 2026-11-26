@@ -1,9 +1,9 @@
 import "./App.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const BORD_GROOTTE = 10;
 const KLEUR_GEEL = "#fff5c4";
-const KLEUR_PAARS = "#390088";
+const KLEUR_PAARS = "#C547FF";
 const KLEUR_ZWART = "#000000";
 const KLEUR_WIT = "#ffffff";
 
@@ -30,6 +30,7 @@ function maakStartBord() {
       const tegel = {
         achtergrondKleur: maakTegelKleur(rij, kolom),
         stuk: maakStartStuk(rij, kolom),
+        klikbaar: false,
       };
 
       return tegel;
@@ -41,6 +42,19 @@ function App() {
   const [bord, setBord] = useState(maakStartBord());
   const [spelerAandeBeurt, setSpelerAanDeBeurt] = useState(KLEUR_GEEL);
   const [geselecteerdStuk, setGeselecteerdStuk] = useState(null);
+  const [geslagenPaarseStukken, setGeslagenPaarseStukken] = useState(0);
+  const [geslagenGeleStukken, setGeslagenGeleStukken] = useState(0);
+  // nov
+  const [spelerHeeftBewogen, setSpelerHeeftBewogen] = useState(false);
+  useEffect(() => {
+    const heeftKlikbareTegels = bord.some((r) => r.some((t) => t.klikbaar));
+
+    if (!heeftKlikbareTegels && spelerHeeftBewogen) {
+      schakelSpeler();
+      setSpelerHeeftBewogen(false);
+    }
+  }, [bord, spelerHeeftBewogen]);
+  //nov
 
   function schakelSpeler() {
     setSpelerAanDeBeurt((huidigeSpeler) => {
@@ -63,10 +77,11 @@ function App() {
       const nieuweBord = vorigeBord.map((r, rIndex) => {
         return r.map((vak, vIndex) => {
           if (kleur === KLEUR_GEEL) {
-            const linksBoven = vorigeBord[rijIndex - 1][tegelIndex - 1];
-            const rechtsBoven = vorigeBord[rijIndex - 1][tegelIndex + 1];
-            const achterLinksBoven = vorigeBord[rijIndex - 2][tegelIndex - 2];
-            const achterRechtsBoven = vorigeBord[rijIndex - 2][tegelIndex + 2];
+            const linksBoven = vorigeBord[rijIndex - 1]?.[tegelIndex - 1];
+            const rechtsBoven = vorigeBord[rijIndex - 1]?.[tegelIndex + 1];
+            const achterLinksBoven = vorigeBord[rijIndex - 2]?.[tegelIndex - 2];
+            const achterRechtsBoven =
+              vorigeBord[rijIndex - 2]?.[tegelIndex + 2];
 
             vak.klikbaar = false;
 
@@ -98,10 +113,11 @@ function App() {
 
             return vak;
           } else if (kleur === KLEUR_PAARS) {
-            const linksOnder = vorigeBord[rijIndex + 1][tegelIndex - 1];
-            const rechtsOnder = vorigeBord[rijIndex + 1][tegelIndex + 1];
-            const achterLinksOnder = vorigeBord[rijIndex + 2][tegelIndex - 2];
-            const achterRechtsOnder = vorigeBord[rijIndex + 2][tegelIndex + 2];
+            const linksOnder = vorigeBord[rijIndex + 1]?.[tegelIndex - 1];
+            const rechtsOnder = vorigeBord[rijIndex + 1]?.[tegelIndex + 1];
+            const achterLinksOnder = vorigeBord[rijIndex + 2]?.[tegelIndex - 2];
+            const achterRechtsOnder =
+              vorigeBord[rijIndex + 2]?.[tegelIndex + 2];
 
             vak.klikbaar = false;
 
@@ -140,45 +156,64 @@ function App() {
     });
   };
 
-  const klikOpEenTegel = (rijIndex, tegelIndex) => {
-    const geklikteTegel = bord[rijIndex][tegelIndex];
+  const klikOpEenTegel = (doelRij, doelTegel) => {
+    const geklikteTegel = bord[doelRij][doelTegel];
 
     if (!geselecteerdStuk || !geklikteTegel.klikbaar) {
       return;
     }
+
+    const { rijIndex: selectieRij, tegelIndex: selectieTegel } =
+      geselecteerdStuk;
+
+    const rDelta = doelRij - selectieRij;
+    const tDelta = doelTegel - selectieTegel;
+
+    const isEenStapDiagonaal = Math.abs(rDelta) === 1 && Math.abs(tDelta) === 1;
+    const isTweeStappenDiagonaal =
+      Math.abs(rDelta) === 2 && Math.abs(tDelta) === 2;
 
     setBord((vorigeBord) => {
       const nieuweBord = [...vorigeBord].map((r) =>
         [...r].map((v) => ({ ...v }))
       );
 
-      const { rijIndex: sRij, tegelIndex: sTegel } = geselecteerdStuk;
-      const geselecteerdVak = nieuweBord[sRij][sTegel];
-      const doelVak = nieuweBord[rijIndex][tegelIndex];
+      const geselecteerdVak = nieuweBord[selectieRij][selectieTegel];
+      const doelVak = nieuweBord[doelRij][doelTegel];
 
       // Geen beweging als er al een stuk staat
       if (doelVak.stuk) {
         return nieuweBord;
       }
 
-      const rDelta = rijIndex - sRij;
-      const kDelta = tegelIndex - sTegel;
-
       // 1 stap diagonaal (gewoon bewegen)
-      if (Math.abs(rDelta) === 1 && Math.abs(kDelta) === 1) {
+      if (isEenStapDiagonaal) {
         doelVak.stuk = geselecteerdVak.stuk;
         geselecteerdVak.stuk = null;
+        // nov
+        nieuweBord.forEach((r) => {
+          r.forEach((v) => {
+            v.klikbaar = false;
+          });
+        });
+        // nov
       }
 
       // 2 stappen diagonaal (slaan)
-      else if (Math.abs(rDelta) === 2 && Math.abs(kDelta) === 2) {
-        const tussenRij = sRij + rDelta / 2;
-        const tussenKolom = sTegel + kDelta / 2;
+      else if (isTweeStappenDiagonaal) {
+        const tussenRij = selectieRij + rDelta / 2;
+        const tussenKolom = selectieTegel + tDelta / 2;
         const tussenVak = nieuweBord[tussenRij][tussenKolom];
 
         if (tussenVak.stuk) {
           // verwijder geslagen stuk
           tussenVak.stuk = null;
+
+          if (spelerAandeBeurt === KLEUR_GEEL) {
+            setGeslagenPaarseStukken((s) => s + 1);
+          } else {
+            setGeslagenGeleStukken((s) => s + 1);
+          }
 
           // verplaats geselecteerd stuk
           doelVak.stuk = geselecteerdVak.stuk;
@@ -189,77 +224,117 @@ function App() {
       doelVak.klikbaar = false;
       return nieuweBord;
     });
+    // nov
 
-    klikOpEenStuk(geselecteerdStuk.kleur, rijIndex, tegelIndex);
-    schakelSpeler();
+    setSpelerHeeftBewogen(true);
 
-    // setGeselecteerdStuk({
-    //   kleur: geselecteerdStuk.kleur,
-    //   rijIndex,
-    //   tegelIndex,
-    // });
+    if (isTweeStappenDiagonaal) {
+      klikOpEenStuk(geselecteerdStuk.kleur, doelRij, doelTegel);
+    }
+    // nov
   };
 
   return (
     <div className="App">
       <h2>Aki programmeert</h2>
       <p>Aan de beurt: {spelerAandeBeurt === KLEUR_GEEL ? "geel" : "paars"}</p>
-      <div
-        style={{
-          width: "fit-content",
-          display: "grid",
-          border: "10px solid LightSalmon",
-          gridTemplateColumns: `repeat(${BORD_GROOTTE}, 1fr)`,
-          gridTemplateRows: `repeat(${BORD_GROOTTE}, 1fr)`,
-        }}
-      >
-        {bord.map((rij, rijIndex) => {
-          return rij.map((tegel, tegelIndex) => {
-            return (
-              <div
-                key={`${rijIndex}-${tegelIndex}`}
-                onClick={() => klikOpEenTegel(rijIndex, tegelIndex)}
-                style={{
-                  display: "grid",
-                  position: "relative",
-                  placeContent: "center",
-                  backgroundColor: tegel.klikbaar
-                    ? "blue"
-                    : tegel.achtergrondKleur,
-                  height: 50,
-                  width: 50,
-                  fontSize: "24px",
-                }}
-              >
-                {/* <div
+      <div style={{ display: "flex", gap: 150 }}>
+        <div
+          style={{
+            width: "fit-content",
+            display: "grid",
+            border: "10px solid LightSalmon",
+            gridTemplateColumns: `repeat(${BORD_GROOTTE}, 1fr)`,
+            gridTemplateRows: `repeat(${BORD_GROOTTE}, 1fr)`,
+          }}
+        >
+          {bord.map((rij, rijIndex) => {
+            return rij.map((tegel, tegelIndex) => {
+              return (
+                <div
+                  key={`${rijIndex}-${tegelIndex}`}
+                  onClick={() => klikOpEenTegel(rijIndex, tegelIndex)}
                   style={{
-                    color: "red",
-                    position: "absolute",
-                    fontSize: "0.7rem",
-                    top: "50%",
-                    left: 5,
-                    transform: "translateY(-50%)",
+                    display: "grid",
+                    position: "relative",
+                    placeContent: "center",
+                    backgroundColor: tegel.klikbaar
+                      ? "blue"
+                      : tegel.achtergrondKleur,
+                    height: 50,
+                    width: 50,
+                    fontSize: "24px",
                   }}
                 >
-                  r:{rijIndex} t:{tegelIndex}
-                </div> */}
-                {tegel.stuk?.kleur && (
-                  <div
-                    onClick={() =>
-                      klikOpEenStuk(tegel.stuk.kleur, rijIndex, tegelIndex)
-                    }
-                    style={{
-                      backgroundColor: tegel.stuk.kleur,
-                      height: 30,
-                      width: 30,
-                      borderRadius: "100%",
-                    }}
-                  />
-                )}
-              </div>
-            );
-          });
-        })}
+                  {tegel.stuk?.kleur && (
+                    <div
+                      onClick={() =>
+                        klikOpEenStuk(tegel.stuk.kleur, rijIndex, tegelIndex)
+                      }
+                      style={{
+                        backgroundColor: tegel.stuk.kleur,
+                        height: 30,
+                        width: 30,
+                        borderRadius: "100%",
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            });
+          })}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "50px 0",
+          }}
+        >
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            Geslagen stukken:
+            <div
+              style={{
+                height: 50,
+                width: 50,
+                backgroundColor: KLEUR_GEEL,
+                border: "5px solid teal",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 30,
+                }}
+              >
+                {geslagenGeleStukken}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            Geslagen stukken:
+            <div
+              style={{
+                height: 50,
+                width: 50,
+                backgroundColor: KLEUR_PAARS,
+                border: "5px solid teal",
+                display: "grid",
+                placeItems: "center",
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 30,
+                }}
+              >
+                {geslagenPaarseStukken}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
